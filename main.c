@@ -72,8 +72,7 @@ int main(void)
     if (!semtech_loramac_is_mac_joined(&loramac)) {
         puts("Starting join procedure");
         if (semtech_loramac_join(&loramac, LORAMAC_JOIN_OTAA) == SEMTECH_LORAMAC_JOIN_SUCCEEDED) {
-            puts("Join procedure succeeded, persisting data.");
-            persist_loramac_state(&loramac);
+            puts("Join procedure succeeded.");
         } else {
             RTC->MODE0.GP[0].reg = 0xFFFFFFFF;
         }
@@ -105,8 +104,11 @@ int main(void)
 
     printf("Faults: %u/%u\n", failures, cycles);
 
+    puts("Persisting LoRaWAN state.");
+    persist_loramac_state(&loramac);
     // persist counters
     RTC->MODE0.GP[1].reg = (failures << 16) + cycles;
+    // persist state
     // put device into deep sleep
     enter_backup_mode();
 
