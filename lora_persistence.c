@@ -2,25 +2,54 @@
 
 #include "fmt.h"
 #include "periph/flashpage.h"
-#include "mutex.h"
-#include "net/loramac.h"
 
 #define RWWEE_PAGE 0
 
-typedef struct {
-    char    magic[4];
-    uint8_t deveui[LORAMAC_DEVEUI_LEN];
-    uint8_t appeui[LORAMAC_APPEUI_LEN];
-    uint8_t appkey[LORAMAC_APPKEY_LEN];
-    uint8_t appskey[LORAMAC_APPSKEY_LEN];
-    uint8_t nwkskey[LORAMAC_NWKSKEY_LEN];
-    uint8_t devaddr[LORAMAC_DEVADDR_LEN];
-    uint32_t rx2_freq;
-    uint8_t rx2_dr;
-} loramac_state_t;
-
+int load_from_flash (loramac_state_t *state) {
+    uint8_t buffer[FLASHPAGE_SIZE];
+    loramac_state_t *tmp_state = (loramac_state_t *)buffer;
+    flashpage_rwwee_read(RWWEE_PAGE, buffer);
+    if (strncmp(tmp_state->magic, "RIOT", 4) != 0) {
 #if VERBOSE_DEBUG
-void debug_loramac_state(loramac_state_t *state) {
+       puts("No loramac state found on FLASH.");
+#endif
+       return -1;
+    }
+    memcpy(state, tmp_state, sizeof(loramac_state_t));
+#if VERBOSE_DEBUG
+    puts("LOADED STATE:");
+    print_loramac_state(state);
+#endif
+    return 0;
+}
+
+int save_to_flash (loramac_state_t *state) {
+    uint8_t buffer[FLASHPAGE_SIZE];
+    loramac_state_t *old_state = (loramac_state_t *)buffer;
+    flashpage_rwwee_read(RWWEE_PAGE, buffer);
+#if VERBOSE_DEBUG
+    puts("OLD STATE:");
+    print_loramac_state(old_state);
+    puts("STATE:");
+    print_loramac_state(state);
+#endif
+    // do not rewrite flash unless needed
+    if(memcmp(state, old_state, sizeof(loramac_state_t)) != 0) {
+        memcpy(buffer, state, sizeof(loramac_state_t));
+        puts("Writing state to flash.");
+        flashpage_rwwee_write(RWWEE_PAGE, buffer);
+        return 1;
+    }
+    return 0;
+}
+
+void erase_flash (void) {
+    uint8_t buffer[FLASHPAGE_SIZE];
+    memset(buffer, 0, FLASHPAGE_SIZE);
+    flashpage_rwwee_write(RWWEE_PAGE, buffer);
+}
+
+void print_loramac_state (loramac_state_t *state) {
     char s[33];
     int n;
     n = fmt_bytes_hex(s, state->deveui, sizeof(state->deveui));
@@ -42,68 +71,4 @@ void debug_loramac_state(loramac_state_t *state) {
     s[n] = 0;
     printf("DEVADDR: %s\n", s);
     printf("RX2 FREQ: %lu, RX2 DR: %u\n", state->rx2_freq, state->rx2_dr);
-}
-#endif
-
-void persist_loramac_state (semtech_loramac_t *mac) {
-    uint8_t buffer[FLASHPAGE_SIZE];
-    loramac_state_t state, *old_state;
-    memcpy(state.magic, "RIOT", 4);
-    semtech_loramac_get_deveui(mac,  state.deveui);
-    semtech_loramac_get_appeui(mac,  state.appeui);
-    semtech_loramac_get_appkey(mac,  state.appkey);
-    semtech_loramac_get_appskey(mac, state.appskey);
-    semtech_loramac_get_nwkskey(mac, state.nwkskey);
-    semtech_loramac_get_devaddr(mac, state.devaddr);
-    state.rx2_freq = semtech_loramac_get_rx2_freq(mac);
-    state.rx2_dr   = semtech_loramac_get_rx2_dr(mac);
-
-    // do not rewrite flash unless needed
-    flashpage_rwwee_read(RWWEE_PAGE, buffer);
-    old_state = (loramac_state_t *)buffer;
-#if VERBOSE_DEBUG
-    puts("OLD STATE:");
-    debug_loramac_state(old_state);
-    puts("STATE:");
-    debug_loramac_state(&state);
-#endif
-    if(memcmp(&state, old_state, sizeof(state)) != 0) {
-        memcpy(buffer, &state, sizeof(state));
-        puts("Writing state to flash.");
-        flashpage_rwwee_write(RWWEE_PAGE, buffer);
-    }
-}
-
-void restore_loramac_state (semtech_loramac_t *mac, uint32_t uplink_counter, bool joined_state) {
-    uint8_t buffer[FLASHPAGE_SIZE];
-    loramac_state_t *state = (loramac_state_t *)buffer;
-
-    flashpage_rwwee_read(RWWEE_PAGE, buffer);
-    if (strncmp(state->magic, "RIOT", 4) != 0) {
-       puts("No persisted loramac state found on FLASH.");
-       return;
-    }
-#if VERBOSE_DEBUG
-    puts("RECOVERED STATE:");
-    debug_loramac_state(state);
-#endif
-
-    puts("Restoring loramac state from FLASH.");
-    semtech_loramac_set_deveui(mac,  state->deveui);
-    semtech_loramac_set_appeui(mac,  state->appeui);
-    semtech_loramac_set_appkey(mac,  state->appkey);
-    semtech_loramac_set_appskey(mac, state->appskey);
-    semtech_loramac_set_nwkskey(mac, state->nwkskey);
-    semtech_loramac_set_devaddr(mac, state->devaddr);
-    semtech_loramac_set_rx2_freq(mac, state->rx2_freq);
-    semtech_loramac_set_rx2_dr(mac, state->rx2_dr);
-    // also restore volatile state
-    semtech_loramac_set_uplink_counter(mac, uplink_counter);
-    semtech_loramac_set_join_state(mac, joined_state);
-}
-
-void erase_loramac_state (void) {
-    uint8_t buffer[FLASHPAGE_SIZE];
-    memset(buffer, 0, FLASHPAGE_SIZE);
-    flashpage_rwwee_write(RWWEE_PAGE, buffer);
 }

@@ -1,17 +1,43 @@
 #include "common.h"
 
-#include <string.h>
-
 #include "periph/gpio.h"
-#include "periph/pm.h"
-
-#include "fmt.h"
 #include "net/loramac.h"
 
-semtech_loramac_t loramac;
-static uint8_t deveui[LORAMAC_DEVEUI_LEN];
-static uint8_t appeui[LORAMAC_APPEUI_LEN];
-static uint8_t appkey[LORAMAC_APPKEY_LEN];
+static semtech_loramac_t loramac;
+
+void persist_loramac_state (semtech_loramac_t *mac) {
+    loramac_state_t state;
+    memcpy(state.magic, "RIOT", 4);
+    semtech_loramac_get_deveui(mac,  state.deveui);
+    semtech_loramac_get_appeui(mac,  state.appeui);
+    semtech_loramac_get_appkey(mac,  state.appkey);
+    semtech_loramac_get_appskey(mac, state.appskey);
+    semtech_loramac_get_nwkskey(mac, state.nwkskey);
+    semtech_loramac_get_devaddr(mac, state.devaddr);
+    state.rx2_freq = semtech_loramac_get_rx2_freq(mac);
+    state.rx2_dr   = semtech_loramac_get_rx2_dr(mac);
+    save_to_flash(&state);
+}
+
+int restore_loramac_state (semtech_loramac_t *mac, uint32_t uplink_counter, bool joined_state) {
+    loramac_state_t state;
+    if (load_from_flash(&state) < 0) {
+       return -1;
+    }
+    puts("Restoring loramac state from FLASH config.");
+    semtech_loramac_set_deveui(mac,  state.deveui);
+    semtech_loramac_set_appeui(mac,  state.appeui);
+    semtech_loramac_set_appkey(mac,  state.appkey);
+    semtech_loramac_set_appskey(mac, state.appskey);
+    semtech_loramac_set_nwkskey(mac, state.nwkskey);
+    semtech_loramac_set_devaddr(mac, state.devaddr);
+    semtech_loramac_set_rx2_freq(mac, state.rx2_freq);
+    semtech_loramac_set_rx2_dr(mac, state.rx2_dr);
+    // also restore volatile state
+    semtech_loramac_set_uplink_counter(mac, uplink_counter);
+    semtech_loramac_set_join_state(mac, joined_state);
+    return 0;
+}
 
 int main(void)
 {
@@ -38,6 +64,10 @@ int main(void)
         failures = (uint16_t)((RTC->MODE0.GP[1].reg & 0xffff0000) >> 16);
         cycles   = (uint16_t)(RTC->MODE0.GP[1].reg & 0x0000ffff) + 1;
     } else {
+        gpio_init(BTN0_PIN, BTN0_MODE);
+        if (gpio_read(BTN0_PIN) == 0) {
+            enter_configuration_mode();
+        }
         // we are not resuming from backup mode, reconfigure RTC
         // select ULP oscillator for RTC
         OSC32KCTRL->RTCCTRL.reg = OSC32KCTRL_RTCCTRL_RTCSEL_ULP32K;
@@ -54,36 +84,36 @@ int main(void)
     }
 
     semtech_loramac_init(&loramac);
-
-    // TODO: add a way to configure parameters via USB
-    fmt_hex_bytes(deveui, DEVEUI);
-    fmt_hex_bytes(appeui, APPEUI);
-    fmt_hex_bytes(appkey, APPKEY);
-    semtech_loramac_set_deveui(&loramac, deveui);
-    semtech_loramac_set_appeui(&loramac, appeui);
-    semtech_loramac_set_appkey(&loramac, appkey);
     semtech_loramac_set_dr(&loramac, LORAMAC_DR_5);
 
 #if VERBOSE_DEBUG
     debug_peripherals();
 #endif
+    gpio_init(LED0_PIN, GPIO_OUT);
 
-    restore_loramac_state(&loramac, uplink_counter, joined_state);
+    if ( restore_loramac_state(&loramac, uplink_counter, joined_state) < 0) {
+        puts("FLASH empty - entering configuration mode.");
+        enter_configuration_mode();
+    }
     if (!semtech_loramac_is_mac_joined(&loramac)) {
         puts("Starting join procedure");
+        gpio_clear(LED0_PIN);
         if (semtech_loramac_join(&loramac, LORAMAC_JOIN_OTAA) == SEMTECH_LORAMAC_JOIN_SUCCEEDED) {
             puts("Join procedure succeeded.");
         } else {
             RTC->MODE0.GP[0].reg = 0xFFFFFFFF;
         }
+        gpio_set(LED0_PIN);
     }
 
     if (semtech_loramac_is_mac_joined(&loramac)) {
         // TODO: acquire sensors and serialize samples into message
         // send message
         printf("Sending: %s\n", message);
+        gpio_clear(LED0_PIN);
         uint8_t ret = semtech_loramac_send(&loramac,
                                        (uint8_t *)message, strlen(message));
+        gpio_set(LED0_PIN);
         uplink_counter = semtech_loramac_get_uplink_counter(&loramac);
         RTC->MODE0.GP[0].reg = uplink_counter;
         if (ret == SEMTECH_LORAMAC_TX_DONE)  {

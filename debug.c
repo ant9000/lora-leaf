@@ -25,12 +25,16 @@ void debug_reset(void) {
                     break;
             }
             break;
+        case RSTC_RCAUSE_SYST:
+            puts ("Reboot.");
+            break;
         default:
             printf("RSTC->RCAUSE: %02x\n", RSTC->RCAUSE.reg);
             break;
     }
 }
 
+#if VERBOSE_DEBUG
 void debug_peripherals(void) {
     puts("Oscillators:");
     if (OSCCTRL->XOSCCTRL.reg & 2) { puts(" OSCCTRL->XOSCMCTRL.ENABLE = 1"); }
@@ -100,3 +104,4 @@ void debug_peripherals(void) {
         }
     }
 }
+#endif
