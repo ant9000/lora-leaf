@@ -4,6 +4,7 @@ RIOTBASE ?= $(CURDIR)/../riot
 QUIET ?= 1
 DEVELHELP ?= 1
 
+STDIO_INTERFACE ?= uart
 SLEEP_SECONDS ?= 300
 VERBOSE_DEBUG ?= 0
 ENABLE_WAKEUP_PIN ?= 0
@@ -16,16 +17,19 @@ USEMODULE += shell
 USEMODULE += xtimer
 USEMODULE += sx1276
 USEMODULE += periph_flashpage
-USEMODULE += auto_init_usbus
-USEMODULE += stdio_cdc_acm
 
-# USB device vendor and product ID
-DEFAULT_VID = 1209
-DEFAULT_PID = 0001
-USB_VID ?= $(DEFAULT_VID)
-USB_PID ?= $(DEFAULT_PID)
+ifeq (usb,$(STDIO_INTERFACE))
+  USEMODULE += auto_init_usbus
+  USEMODULE += stdio_cdc_acm
 
-CFLAGS += -DUSB_CONFIG_VID=0x$(USB_VID) -DUSB_CONFIG_PID=0x$(USB_PID)
+  # USB device vendor and product ID
+  DEFAULT_VID = 1209
+  DEFAULT_PID = 0001
+  USB_VID ?= $(DEFAULT_VID)
+  USB_PID ?= $(DEFAULT_PID)
+
+  CFLAGS += -DUSB_CONFIG_VID=0x$(USB_VID) -DUSB_CONFIG_PID=0x$(USB_PID)
+endif
 
 CFLAGS += -DSLEEP_SECONDS=$(SLEEP_SECONDS)
 CFLAGS += -DVERBOSE_DEBUG=$(VERBOSE_DEBUG)
@@ -36,6 +40,7 @@ CFLAGS += -DAPPKEY=\"$(APPKEY)\"
 
 include $(RIOTBASE)/Makefile.include
 
+ifeq (usb,$(STDIO_INTERFACE))
 .PHONY: usb_id_check
 usb_id_check:
 	@if [ $(USB_VID) = $(DEFAULT_VID) ] || [ $(USB_PID) = $(DEFAULT_PID) ] ; then \
@@ -44,3 +49,4 @@ usb_id_check:
     fi
 
 all: | usb_id_check
+endif

@@ -42,7 +42,7 @@ void debug_peripherals(void) {
         puts(" OSCCTRL->OSC16MCTRL.ENABLE = 1");
         printf(" OSCCTRL->OSC16MCTRL.FSEL   = %d\n", (OSCCTRL->OSC16MCTRL.reg >> 2) & 0x03);
     }
-    if (OSCCTRL->DFLLCTRL.reg & 2) { puts(" OSCCTRL->DFLLMCTRL.ENABLE = 1"); }
+    if (OSCCTRL->DFLLCTRL.reg & 2) { puts(" OSCCTRL->DFLLCTRL.ENABLE = 1"); }
     if (OSCCTRL->DPLLCTRLA.reg  & 2 ) { puts(" OSCCTRL->DPLLCTRLA.ENABLE = 1"); }
     if (OSC32KCTRL->XOSC32K.reg & 2) { puts(" OSC32KCTRL->XOSC32K.ENABLE = 1"); }
     if (OSC32KCTRL->OSC32K.reg & 2) { puts(" OSC32KCTRL->OSC32K.ENABLE  = 1"); }

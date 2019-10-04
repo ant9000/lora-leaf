@@ -30,6 +30,10 @@ void enter_backup_mode(void) {
     RTC->MODE0.INTFLAG.reg |= RTC_MODE0_INTFLAG_CMP0;
     RTC->MODE0.INTENSET.reg |= RTC_MODE0_INTENSET_CMP0;
 
+#if VERBOSE_DEBUG
+    debug_peripherals();
+#endif
+
     puts("Entering BACKUP mode.");
 
     // power down radio spi clock
@@ -37,6 +41,7 @@ void enter_backup_mode(void) {
     GCLK->PCHCTRL[SERCOM4_GCLK_ID_CORE].reg &= ~GCLK_PCHCTRL_CHEN;
     while (GCLK->PCHCTRL[SERCOM4_GCLK_ID_CORE].reg & GCLK_PCHCTRL_CHEN) {}
 
+#ifdef MODULE_STDIO_UART
     // power down serial port clock
     MCLK->APBCMASK.reg &= !MCLK_APBCMASK_SERCOM0;
     GCLK->PCHCTRL[SERCOM0_GCLK_ID_CORE].reg &= ~GCLK_PCHCTRL_CHEN;
@@ -46,6 +51,18 @@ void enter_backup_mode(void) {
     gpio_init(GPIO_PIN(PA, 5), GPIO_OUT);
     gpio_clear(GPIO_PIN(PA, 4));
     gpio_clear(GPIO_PIN(PA, 5));
+#endif
+
+#ifdef MODULE_STDIO_CDC_ACM
+    // power down USB clock
+    OSCCTRL->DFLLCTRL.bit.ENABLE = 0;
+    while (!(OSCCTRL->STATUS.reg & OSCCTRL_STATUS_DFLLRDY)) {}
+    // mux usb port pins to gpio and set them off
+    gpio_init(GPIO_PIN(PA, 24), GPIO_OUT);
+    gpio_init(GPIO_PIN(PA, 25), GPIO_OUT);
+    gpio_clear(GPIO_PIN(PA, 24));
+    gpio_clear(GPIO_PIN(PA, 25));
+#endif
 
     pm_set(0);
 }
