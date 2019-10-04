@@ -10,6 +10,7 @@
 #include "net/loramac.h"
 #include "shell.h"
 
+void auto_init_usb(void);
 static loramac_state_t state;
 
 static int cmd_set(int argc, char **argv)
@@ -146,11 +147,13 @@ void enter_configuration_mode(void) {
         THREAD_CREATE_WOUT_YIELD | THREAD_CREATE_STACKTEST,
         blink_led, NULL, "led");
 
+    auto_init_usb();
     char line_buf[SHELL_DEFAULT_BUFSIZE];
 
     if (load_from_flash (&state) < 0) {
         memcpy(state.magic, "RIOT", 4);
         luid_get(state.deveui, LORAMAC_DEVEUI_LEN);
     }
+    puts("Entering config mode - use 'help' for enumerating commands.");
     shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
 }
