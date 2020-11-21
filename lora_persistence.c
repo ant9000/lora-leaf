@@ -37,7 +37,7 @@ int save_to_flash (loramac_state_t *state) {
     if(memcmp(state, old_state, sizeof(loramac_state_t)) != 0) {
         memcpy(buffer, state, sizeof(loramac_state_t));
         puts("Writing state to flash.");
-        flashpage_rwwee_write(RWWEE_PAGE, buffer);
+        flashpage_rwwee_write_page(RWWEE_PAGE, buffer);
         return 1;
     }
     return 0;
@@ -46,7 +46,7 @@ int save_to_flash (loramac_state_t *state) {
 void erase_flash (void) {
     uint8_t buffer[FLASHPAGE_SIZE];
     memset(buffer, 0, FLASHPAGE_SIZE);
-    flashpage_rwwee_write(RWWEE_PAGE, buffer);
+    flashpage_rwwee_write_page(RWWEE_PAGE, buffer);
 }
 
 void print_loramac_state (loramac_state_t *state) {

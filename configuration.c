@@ -6,6 +6,7 @@
 
 #include "luid.h"
 #include "thread.h"
+#include "xtimer.h"
 #include "fmt.h"
 #include "net/loramac.h"
 #include "shell.h"
