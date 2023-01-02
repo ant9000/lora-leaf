@@ -6,14 +6,11 @@
 #include <string.h>
 
 #include "board.h"
-#include "sx127x.h"
 #include "semtech_loramac.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-extern sx127x_t sx127x;
 
 typedef struct {
     char    magic[4];

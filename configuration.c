@@ -131,6 +131,7 @@ static const shell_command_t shell_commands[] = {
     { NULL, NULL, NULL }
 };
 
+#if defined(LED1_PIN)
 static char _stack[THREAD_STACKSIZE_DEFAULT];
 void *blink_led(void *arg) {
     (void)arg;
@@ -141,11 +142,14 @@ void *blink_led(void *arg) {
         xtimer_sleep(1);
     }
 }
+#endif
 
 void enter_configuration_mode(void) {
+#if defined(LED1_PIN)
     thread_create(_stack, sizeof(_stack), THREAD_PRIORITY_MAIN - 1,
         THREAD_CREATE_WOUT_YIELD | THREAD_CREATE_STACKTEST,
         blink_led, NULL, "led");
+#endif
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];
 

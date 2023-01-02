@@ -5,8 +5,12 @@
 
 void enter_backup_mode(void) {
     // led levels are inverted
+#if defined(LED0_PIN)
     gpio_set(LED0_PIN);
+#endif
+#if defined(LED1_PIN)
     gpio_set(LED1_PIN);
+#endif
 
 #if ENABLE_WAKEUP_PIN
     // NB: the wakeup pin needs 130uA extra
@@ -17,8 +21,6 @@ void enter_backup_mode(void) {
 #endif
 
     puts("Putting radio in sleep mode.");
-    sx127x_reset(&sx127x);
-    sx127x_set_sleep(&sx127x);
     gpio_clear(TX_OUTPUT_SEL_PIN);
     gpio_clear(TCXO_PWR_PIN);
 

@@ -5,17 +5,21 @@
 
 #define RWWEE_PAGE 0
 
+typedef union {
+   loramac_state_t state;
+   uint8_t buffer[FLASHPAGE_SIZE];
+} buffer_t;
+
 int load_from_flash (loramac_state_t *state) {
-    uint8_t buffer[FLASHPAGE_SIZE];
-    loramac_state_t *tmp_state = (loramac_state_t *)buffer;
-    flashpage_rwwee_read(RWWEE_PAGE, buffer);
-    if (strncmp(tmp_state->magic, "RIOT", 4) != 0) {
+    buffer_t buffer;
+    flashpage_rwwee_read(RWWEE_PAGE, buffer.buffer);
+    if (strncmp(buffer.state.magic, "RIOT", 4) != 0) {
 #if VERBOSE_DEBUG
        puts("No loramac state found on FLASH.");
 #endif
        return -1;
     }
-    memcpy(state, tmp_state, sizeof(loramac_state_t));
+    memcpy(state, buffer.buffer, sizeof(loramac_state_t));
 #if VERBOSE_DEBUG
     puts("LOADED STATE:");
     print_loramac_state(state);
@@ -24,20 +28,19 @@ int load_from_flash (loramac_state_t *state) {
 }
 
 int save_to_flash (loramac_state_t *state) {
-    uint8_t buffer[FLASHPAGE_SIZE];
-    loramac_state_t *old_state = (loramac_state_t *)buffer;
-    flashpage_rwwee_read(RWWEE_PAGE, buffer);
+    buffer_t buffer;
+    flashpage_rwwee_read(RWWEE_PAGE, buffer.buffer);
 #if VERBOSE_DEBUG
     puts("OLD STATE:");
-    print_loramac_state(old_state);
+    print_loramac_state(&(buffer.state));
     puts("STATE:");
     print_loramac_state(state);
 #endif
     // do not rewrite flash unless needed
-    if(memcmp(state, old_state, sizeof(loramac_state_t)) != 0) {
-        memcpy(buffer, state, sizeof(loramac_state_t));
+    if(memcmp(state, buffer.buffer, sizeof(loramac_state_t)) != 0) {
+        memcpy(buffer.buffer, state, sizeof(loramac_state_t));
         puts("Writing state to flash.");
-        flashpage_rwwee_write_page(RWWEE_PAGE, buffer);
+        flashpage_rwwee_write_page(RWWEE_PAGE, buffer.buffer);
         return 1;
     }
     return 0;

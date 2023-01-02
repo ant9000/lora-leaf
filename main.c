@@ -2,8 +2,12 @@
 
 #include "periph/gpio.h"
 #include "net/loramac.h"
+#include "sx127x.h"
+#include "sx127x_netdev.h"
+#include "sx127x_params.h"
 
 static semtech_loramac_t loramac;
+static sx127x_t sx127x;
 
 void persist_loramac_state (semtech_loramac_t *mac) {
     loramac_state_t state;
@@ -83,13 +87,21 @@ int main(void)
         while (RTC->MODE0.SYNCBUSY.reg) {}
     }
 
+puts("before sx127x init");
+    sx127x_setup(&sx127x, &sx127x_params[0], 0);
+    loramac.netdev = (netdev_t *)&sx127x;
+    loramac.netdev->driver = &sx127x_driver;
+puts("before lora init");
     semtech_loramac_init(&loramac);
+puts("before lora set dr");
     semtech_loramac_set_dr(&loramac, LORAMAC_DR_5);
 
 #if VERBOSE_DEBUG
     debug_peripherals();
 #endif
+#if defined(LED0_PIN)
     gpio_init(LED0_PIN, GPIO_OUT);
+#endif
 
     if ( restore_loramac_state(&loramac, uplink_counter, joined_state) < 0) {
         puts("FLASH empty - entering configuration mode.");
@@ -97,23 +109,31 @@ int main(void)
     }
     if (!semtech_loramac_is_mac_joined(&loramac)) {
         puts("Starting join procedure");
+#if defined(LED0_PIN)
         gpio_clear(LED0_PIN);
+#endif
         if (semtech_loramac_join(&loramac, LORAMAC_JOIN_OTAA) == SEMTECH_LORAMAC_JOIN_SUCCEEDED) {
             puts("Join procedure succeeded.");
         } else {
             RTC->MODE0.GP[0].reg = 0xFFFFFFFF;
         }
+#if defined(LED0_PIN)
         gpio_set(LED0_PIN);
+#endif
     }
 
     if (semtech_loramac_is_mac_joined(&loramac)) {
         // TODO: acquire sensors and serialize samples into message
         // send message
         printf("Sending: %s\n", message);
+#if defined(LED0_PIN)
         gpio_clear(LED0_PIN);
+#endif
         uint8_t ret = semtech_loramac_send(&loramac,
                                        (uint8_t *)message, strlen(message));
+#if defined(LED0_PIN)
         gpio_set(LED0_PIN);
+#endif
         uplink_counter = semtech_loramac_get_uplink_counter(&loramac);
         RTC->MODE0.GP[0].reg = uplink_counter;
         if (ret == SEMTECH_LORAMAC_TX_DONE)  {
@@ -140,6 +160,8 @@ int main(void)
     RTC->MODE0.GP[1].reg = (failures << 16) + cycles;
     // persist state
     // put device into deep sleep
+    sx127x_reset(&sx127x);
+    sx127x_set_sleep(&sx127x);
     enter_backup_mode();
 
     // never reached
