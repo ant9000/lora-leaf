@@ -89,7 +89,7 @@ int main(void)
 
 puts("before sx127x init");
     sx127x_setup(&sx127x, &sx127x_params[0], 0);
-    loramac.netdev = (netdev_t *)&sx127x;
+    loramac.netdev = &sx127x.netdev;
     loramac.netdev->driver = &sx127x_driver;
 puts("before lora init");
     semtech_loramac_init(&loramac);
@@ -103,7 +103,7 @@ puts("before lora set dr");
     gpio_init(LED0_PIN, GPIO_OUT);
 #endif
 
-    if ( restore_loramac_state(&loramac, uplink_counter, joined_state) < 0) {
+    if (restore_loramac_state(&loramac, uplink_counter, joined_state) < 0) {
         puts("FLASH empty - entering configuration mode.");
         enter_configuration_mode();
     }
